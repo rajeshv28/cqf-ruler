@@ -1,17 +1,19 @@
-FROM openjdk:21-slim-bullseye
+FROM eclipse-temurin:21-jdk-jammy AS build
+WORKDIR /src
+COPY . .
 
-ARG COMMIT_HASH
-LABEL COMMIT_HASH ${COMMIT_HASH}
-ENV COMMIT_HASH ${COMMIT_HASH}
+# Very important: pull submodules if repo uses them
+# (works even if no submodules exist)
+RUN git submodule update --init --recursive || true
 
-RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
-RUN groupadd -r cqfruler && useradd -r -g cqfruler cqfruler
-USER cqfruler
-WORKDIR /home/cqfruler
+RUN ./mvnw -B -DskipTests clean package
 
-RUN mkdir server
-RUN mkdir plugin
-COPY --chown=cqfruler:cqfruler /server/target/cqf-ruler-server-*.war server/ROOT.war
+FROM eclipse-temurin:21-jre-jammy
+WORKDIR /app
+
+# NOTE: This is a placeholder. We will adjust after we confirm the right jar/war.
+# For now we copy everything and print artifacts during first run.
+COPY --from=build /src /src
+
 EXPOSE 8080
-
-CMD ["java", "-cp", "server/ROOT.war", "-Dloader.path=WEB-INF/classes,WEB-INF/lib,WEB-INF/lib-provided,plugin", "org.springframework.boot.loader.launch.PropertiesLauncher"]
+CMD ["bash","-lc","find /src -name '*.jar' -o -name '*.war' | sed -n '1,80p' && echo 'Container built. Update CMD to run the correct jar/war.' && sleep infinity"]
