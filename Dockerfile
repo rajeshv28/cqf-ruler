@@ -1,10 +1,17 @@
-FROM public.ecr.aws/temurin/temurin:21-jdk-jammy AS build
+# ---- Build stage ----
+FROM public.ecr.aws/amazoncorretto/amazoncorretto:21 AS build
 WORKDIR /src
 COPY . .
+
+# If submodules exist, fetch them; if not, this won't fail the build
+RUN git submodule update --init --recursive || true
+
 RUN ./mvnw -B -DskipTests clean package
 
-FROM public.ecr.aws/temurin/temurin:21-jre-jammy
+# ---- Runtime stage ----
+FROM public.ecr.aws/amazoncorretto/amazoncorretto:21
 WORKDIR /app
+
 COPY --from=build /src /src
 
 EXPOSE 8080
