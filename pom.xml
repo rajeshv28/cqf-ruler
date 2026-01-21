@@ -62,7 +62,7 @@
 	</developers>
 
 	<modules>
-		<module>external</module>
+		<!-- <module>external</module> -->
 		<module>test</module>
 		<module>core</module>
 		<module>plugin</module>
