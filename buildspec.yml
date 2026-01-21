@@ -5,12 +5,29 @@ env:
     AWS_REGION: "us-east-1"
     ECR_REPO_NAME: "fhir-cql-engine"
     IMAGE_TAG: "0.14.0"
+    GIT_TAG: "v0.14.0"
 
 phases:
   pre_build:
     commands:
+      - "echo Current commit before checkout:"
+      - "git rev-parse --short HEAD || true"
+      - "git describe --tags --always || true"
+
+      - "echo Fetching tags and checking out ${GIT_TAG}..."
+      - "git fetch --tags"
+      - "git checkout ${GIT_TAG}"
+
+      - "echo Current commit after checkout:"
+      - "git rev-parse --short HEAD"
+      - "git describe --tags --always"
+
+      - "echo Updating submodules (if any)..."
+      - "git submodule update --init --recursive || true"
+
       - "echo Checking AWS identity..."
       - "aws sts get-caller-identity"
+
       - "echo Logging in to Amazon ECR..."
       - "AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)"
       - "ECR_URI=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}"
