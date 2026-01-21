@@ -4,28 +4,35 @@ env:
   variables:
     AWS_REGION: "us-east-1"
     ECR_REPO_NAME: "fhir-cql-engine"
-    IMAGE_TAG: "codebuild"
+    IMAGE_TAG: "dev"
+    # IMPORTANT: we'll set this after we see modules
+    MODULE: ""
 
 phases:
   pre_build:
     commands:
       - "set -e"
-      - "echo Building commit:"
+      - "echo Commit:"
       - "git rev-parse --short HEAD"
       - "git log -1 --oneline"
 
       - "AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)"
       - "ECR_URI=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}"
+      - "echo ECR_URI=${ECR_URI}"
 
       - "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
 
   build:
     commands:
-      - "docker build -t ${ECR_REPO_NAME}:${IMAGE_TAG} ."
+      - "set -e"
+      - "echo Building Docker image with MODULE=${MODULE}"
+      - "docker build --build-arg MODULE=${MODULE} -t ${ECR_REPO_NAME}:${IMAGE_TAG} ."
       - "docker tag ${ECR_REPO_NAME}:${IMAGE_TAG} ${ECR_URI}:${IMAGE_TAG}"
 
   post_build:
     commands:
+      - "set -e"
+      - "echo Pushing to ECR..."
       - "docker push ${ECR_URI}:${IMAGE_TAG}"
       - "echo Pushed ${ECR_URI}:${IMAGE_TAG}"
 
