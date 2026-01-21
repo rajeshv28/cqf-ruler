@@ -5,13 +5,33 @@ env:
     AWS_REGION: "us-east-1"
     ECR_REPO_NAME: "fhir-cql-engine"
     IMAGE_TAG: "0.14.0"
+    GIT_TAG: "v0.14.0"
 
 phases:
   pre_build:
     commands:
-      - "echo Checking AWS identity..."
+      - "set -e"
+      - "echo Before checkout:"
+      - "git rev-parse --short HEAD || true"
+      - "git describe --tags --always || true"
+
+      - "echo Fetching tags..."
+      - "git fetch --tags --force"
+
+      - "echo Checking out tag ${GIT_TAG}..."
+      - "git checkout -f ${GIT_TAG}"
+
+      - "echo After checkout:"
+      - "git rev-parse --short HEAD"
+      - "git describe --tags --always"
+
+      - "echo Updating submodules (if any)..."
+      - "git submodule update --init --recursive || true"
+
+      - "echo AWS identity:"
       - "aws sts get-caller-identity"
-      - "echo Logging in to Amazon ECR..."
+
+      - "echo Logging in to ECR..."
       - "AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)"
       - "ECR_URI=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}"
       - "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
@@ -25,9 +45,9 @@ phases:
 
   post_build:
     commands:
-      - "echo Pushing Docker image to ECR..."
+      - "echo Pushing image to ECR..."
       - "docker push ${ECR_URI}:${IMAGE_TAG}"
-      - "echo Pushed ${ECR_URI}:${IMAGE_TAG}"
+      - "echo Done: ${ECR_URI}:${IMAGE_TAG}"
 
 artifacts:
   files: []
