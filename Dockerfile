@@ -15,7 +15,8 @@ RUN echo "===== LISTING MODULES (pom.xml) =====" && (grep -n "<module>" pom.xml 
 RUN if [ -z "$MODULE" ]; then echo "ERROR: MODULE build-arg not set. Set MODULE to the runnable server module name." && exit 1; fi
 
 # Build only the chosen module + its dependencies
-RUN ./mvnw -B -DskipTests -pl "$MODULE" -am clean package
+RUN ./mvnw -B -DskipTests -pl "./$MODULE" -am clean package
+
 
 # ---- Runtime stage ----
 FROM public.ecr.aws/amazoncorretto/amazoncorretto:21
