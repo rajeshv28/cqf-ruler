@@ -7,11 +7,12 @@ WORKDIR /src
 COPY . .
 
 # If submodules exist, fetch them; if none, do nothing
+RUN chmod +x mvnw
 RUN git submodule update --init --recursive || true
 
 # Build only the modules we need (skip external because it fails)
 RUN ./mvnw -B -DskipTests -pl ./core,./plugin,./server clean package
-
+RUN echo 'Built artifacts:' && ls -la /src/server/target
 
 # =========================
 # Runtime stage
