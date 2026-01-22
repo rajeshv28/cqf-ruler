@@ -1,0 +1,40 @@
+version: 0.2
+
+env:
+  variables:
+    AWS_REGION: "us-east-1"
+    ECR_REPO_NAME: "fhir-cql-engine"
+    IMAGE_TAG: "v0.14.0"
+
+phases:
+  pre_build:
+    commands:
+      - "set -e"
+      - "echo ===== PRE-BUILD ====="
+      - "echo Commit info:"
+      - "git rev-parse --short HEAD"
+      - "git log -1 --oneline"
+      - "echo Logging in to Amazon ECR..."
+      - "AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)"
+      - "ECR_URI=${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com/${ECR_REPO_NAME}"
+      - "aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+
+  build:
+    commands:
+      - "set -e"
+      - "echo ===== BUILD ====="
+      - "echo Building Docker image..."
+      - "docker build -t ${ECR_REPO_NAME}:${IMAGE_TAG} ."
+      - "docker tag ${ECR_REPO_NAME}:${IMAGE_TAG} ${ECR_URI}:${IMAGE_TAG}"
+
+  post_build:
+    commands:
+      - "set -e"
+      - "echo ===== POST-BUILD ====="
+      - "docker images | grep ${ECR_REPO_NAME} || (echo 'Image not built; skipping push' && exit 0)"
+      - "echo Pushing image to ECR..."
+      - "docker push ${ECR_URI}:${IMAGE_TAG}"
+      - "echo SUCCESS: ${ECR_URI}:${IMAGE_TAG}"
+
+artifacts:
+  files: []

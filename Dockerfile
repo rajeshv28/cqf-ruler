@@ -1,13 +1,37 @@
-FROM openjdk:18-slim-bullseye
+# =========================
+# Build stage
+# =========================
+FROM public.ecr.aws/amazoncorretto/amazoncorretto:21 AS build
 
-ARG COMMIT_HASH
-LABEL COMMIT_HASH ${COMMIT_HASH}
-ENV COMMIT_HASH ${COMMIT_HASH}
+WORKDIR /src
+COPY . .
 
-RUN apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
+# If submodules exist, fetch them; if none, do nothing
+RUN git submodule update --init --recursive || true
 
-RUN mkdir server
-RUN mkdir plugin
-COPY ./server/target/cqf-ruler-server-*.war server/ROOT.war
+# Build only the modules we need (skip external because it fails)
+RUN ./mvnw -B -DskipTests -pl ./core,./plugin,./server clean package
+
+
+# =========================
+# Runtime stage
+# =========================
+FROM public.ecr.aws/amazoncorretto/amazoncorretto:21
+WORKDIR /app
+
+COPY --from=build /src/server/target /app/target
+
 EXPOSE 8080
-CMD ["java", "-cp", "server/ROOT.war", "-Dloader.path=WEB-INF/classes,WEB-INF/lib,WEB-INF/lib-provided,plugin", "org.springframework.boot.loader.PropertiesLauncher"]
+
+CMD ["bash","-lc", "\
+   set -euo pipefail; \
+   echo 'Looking for runnable jar in /app/target...'; \
+   JAR=$(ls -1 /app/target/*.jar 2>/dev/null | grep -vE '(sources|javadoc|original|plain)\\.jar$' | head -n 1); \
+   if [ -z \"${JAR:-}\" ]; then \
+   echo 'ERROR: No runnable jar found.'; \
+   ls -la /app/target || true; \
+   exit 1; \
+   fi; \
+   echo \"Starting $JAR\"; \
+   java -XX:MaxRAMPercentage=75 -jar \"$JAR\" \
+   "]
