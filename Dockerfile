@@ -28,27 +28,21 @@ CMD ["bash","-lc", "\
    set -euo pipefail; \
    echo 'Listing /app/target:'; \
    ls -la /app/target || true; \
-   echo 'Looking for runnable jar in /app/target...'; \
+   echo 'Looking for runnable WAR or JAR in /app/target...'; \
+   echo 'All wars found:'; \
+   ls -1 /app/target/*.war 2>/dev/null || true; \
    echo 'All jars found:'; \
    ls -1 /app/target/*.jar 2>/dev/null || true; \
-   JAR=$(ls -1 /app/target/*.jar 2>/dev/null | grep -vE '(sources|javadoc|original|plain)\\.jar$' | head -n 1); \
-   if [ -z \"${JAR:-}\" ]; then \
-   echo 'ERROR: No runnable jar found after filtering.'; \
-   exit 1; \
+   WAR=$(ls -1 /app/target/*.war 2>/dev/null | grep -vE '\\.original$' | head -n 1 || true); \
+   if [ -n \"${WAR:-}\" ]; then \
+   echo \"Starting WAR: $WAR\"; \
+   exec java -XX:MaxRAMPercentage=75 -jar \"$WAR\"; \
    fi; \
-   echo \"Starting $JAR\"; \
-   java -XX:MaxRAMPercentage=75 -jar \"$JAR\" \
+   JAR=$(ls -1 /app/target/*.jar 2>/dev/null | grep -vE '(sources|javadoc|original|plain)\\.jar$' | head -n 1 || true); \
+   if [ -n \"${JAR:-}\" ]; then \
+   echo \"Starting JAR: $JAR\"; \
+   exec java -XX:MaxRAMPercentage=75 -jar \"$JAR\"; \
+   fi; \
+   echo 'ERROR: No runnable WAR or JAR found in /app/target.'; \
+   exit 1 \
    "]
-
-# CMD ["bash","-lc", "\
-#    set -euo pipefail; \
-#    echo 'Looking for runnable jar in /app/target...'; \
-#    JAR=$(ls -1 /app/target/*.jar 2>/dev/null | grep -vE '(sources|javadoc|original|plain)\\.jar$' | head -n 1); \
-#    if [ -z \"${JAR:-}\" ]; then \
-#    echo 'ERROR: No runnable jar found.'; \
-#    ls -la /app/target || true; \
-#    exit 1; \
-#    fi; \
-#    echo \"Starting $JAR\"; \
-#    java -XX:MaxRAMPercentage=75 -jar \"$JAR\" \
-#    "]
